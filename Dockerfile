@@ -45,7 +45,7 @@ ENV GUNICORN_WORKERS="${GUNICORN_WORKERS}"\
     PORT="${PORT}"\
     API_KEY=some-super-secret-api-key\
     FLASK_APP=facerecognition-external-model.py\
-    OMP_NUM_THREADS=3\
+    OMP_NUM_THREADS=4\
     OPENBLAS_MAIN_FREE=0
 
 ENTRYPOINT ["gunicorn", "-c", "gunicorn_config.py", "facerecognition-external-model:app"]
