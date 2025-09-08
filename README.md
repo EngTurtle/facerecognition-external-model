@@ -1,7 +1,7 @@
 # Face Recognition External Model 👪
 This service implements the same [models](https://github.com/matiasdelellis/facerecognition/wiki/Models) that already exists in the Nextcloud [Face Recognition](https://github.com/matiasdelellis/facerecognition) application, but it allows to run it on an external machine, which can be faster, and thus free up important resources from the server where you have Nextcloud installed.
 
-Take this also as a reference model, since you can implement any external model for the Nextcloud Face Recognition application. You can implement an external model using your favorite machine learning tool, with the programming language you love.. ❤️
+It is forked from the original [matiasdelellis/facerecognition-external-model](https://github.com/matiasdelellis/facerecognition-external-model) repo, with modifications to enable multi-threaded processing via OpenBLAS library.
 
 ## Privacy
 Take into account how the service works. You must send a copy of each of your images (or of your clients), from your Nextcloud instance to the server where you run this service.
@@ -24,12 +24,14 @@ The fastest way to get this up and running without manual installation and confi
 # Expose the service on 8080 TCP port and send the API key as a file. By default it uses model 4 for facial recognition.
 [matias@services ~]$ docker run --rm -i -p 8080:5000 -v /path/to/api.key:/app/api.key --name facerecognition matiasdelellis/facerecognition-external-model:v0.2.0
 # You can pass the API key as an environment variable, but it is a practice that is not recommended because it is exposed on the command line.
-[matias@services ~]$ docker run --rm -i -p 8080:5000 -e API_KEY="NZ9ciQuH0djnyyTcsDhNL7so6SVrR01znNnv0iXLrSk=" --name facerecognition matiasdelellis/facerecognition-external-model:v0.2.0
+[matias@services ~]$ docker run --rm -i -p 8080:5000 -e API_KEY="NZ9ciQuH0djnyyTcsDhNL7so6SVrR01znNnv0iXLrSk=" --name facerecognition engturtle/facerecognition-external-model:openblas
 # You can change the default model using the `FACE_MODEL` environment variable.
 # If you do not set the API key, it remains "some-super-secret-api-key". Needless to say, it is not advisable to leave it by default.
-[matias@services ~]$ docker run --rm -i -p 8080:5000 -e FACE_MODEL=3 --name facerecognition matiasdelellis/facerecognition-external-model:v0.2.0 
+[matias@services ~]$ docker run --rm -i -p 8080:5000 -e FACE_MODEL=3 --name facerecognition engturtle/facerecognition-external-model:openblas
 ```
-If you want to use multiple connections at once (enough memory is mandatory), either for multiple instances or for faster procession large amounts of photos (only a single core is used for each process) you can set the enviroment variable "GUNICORN_WORKERS" to the desired number.
+To set the number of threads for each worker, set the `OMP_NUM_THREADS` environment variable. It defaults to 4 if unset.
+
+If you want to use multiple connections at once (enough memory is mandatory), for multiple instances you can set the enviroment variable "GUNICORN_WORKERS" to the desired number.
 
 ### Test
 Check that the service is running using the `/welcome` endpoint.
