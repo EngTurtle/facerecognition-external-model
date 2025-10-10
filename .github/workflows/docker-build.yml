@@ -38,5 +38,5 @@ jobs:
           context: './'
           no-cache: true
           file: 'Dockerfile'
-          tags: matiasdelellis/facerecognition-external-model:${{ github.event.inputs.tagName }}
+          tags: engturtle/facerecognition-external-model:${{ github.event.inputs.tagName }}
           provenance: false
