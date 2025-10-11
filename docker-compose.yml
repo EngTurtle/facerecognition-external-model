@@ -3,11 +3,7 @@ version: '3.8'
 services:
   # Face recognition service with CPU support
   facerecognition-cpu:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        DEVICE: cpu
+    image: ghcr.io/engturtle/facerecognition-external-model-insightface:cpu
     container_name: facerecognition-cpu
     ports:
       - "8080:5000"
@@ -54,11 +50,7 @@ services:
   # Face recognition service with CUDA GPU support
   facerecognition-cuda:
     profiles: ["cuda"]
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        DEVICE: cuda
+    image: ghcr.io/engturtle/facerecognition-external-model-insightface:cuda
     container_name: facerecognition-cuda
     ports:
       - "8080:5000"
@@ -86,11 +78,7 @@ services:
   # Face recognition service with OpenVINO (Intel GPU/CPU optimization)
   facerecognition-openvino:
     profiles: ["openvino"]
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        DEVICE: openvino
+    image: ghcr.io/engturtle/facerecognition-external-model-insightface:openvino
     container_name: facerecognition-openvino
     ports:
       - "8080:5000"

@@ -47,29 +47,21 @@ Maintains full compatibility with Nextcloud Face Recognition app:
 #   - OpenVINO: Ensure /dev/dri device is available
 ```
 
-### Build for CPU
+### Using Pre-built Images
+
+Pre-built images are available from GitHub Container Registry:
 
 ```bash
-# Build
-docker build --build-arg DEVICE=cpu -t facerecognition-insightface:cpu -f Dockerfile .
-
-# Run
+# CPU
 docker run -d --name facerecognition \
   -p 8080:5000 \
   -e API_KEY="some-super-secret-api-key" \
   -e MODEL_NAME="buffalo_l" \
   -e DEVICE="cpu" \
   -v model-cache:/app/models \
-  facerecognition-insightface:cpu
-```
+  ghcr.io/engturtle/facerecognition-external-model-insightface:cpu
 
-### Build for CUDA
-
-```bash
-# Build
-docker build --build-arg DEVICE=cuda -t facerecognition-insightface:cuda -f Dockerfile .
-
-# Run
+# CUDA
 docker run -d --name facerecognition \
   --gpus all \
   -p 8080:5000 \
@@ -77,16 +69,9 @@ docker run -d --name facerecognition \
   -e MODEL_NAME="buffalo_l" \
   -e DEVICE="cuda" \
   -v model-cache:/app/models \
-  facerecognition-insightface:cuda
-```
+  ghcr.io/engturtle/facerecognition-external-model-insightface:cuda
 
-### Build for OpenVINO
-
-```bash
-# Build
-docker build --build-arg DEVICE=openvino -t facerecognition-insightface:openvino -f Dockerfile .
-
-# Run
+# OpenVINO
 docker run -d --name facerecognition \
   --device /dev/dri:/dev/dri \
   -p 8080:5000 \
@@ -94,7 +79,25 @@ docker run -d --name facerecognition \
   -e MODEL_NAME="buffalo_l" \
   -e DEVICE="openvino" \
   -v model-cache:/app/models \
-  facerecognition-insightface:openvino
+  ghcr.io/engturtle/facerecognition-external-model-insightface:openvino
+```
+
+### Build Locally (Optional)
+
+```bash
+# Build
+docker build --build-arg DEVICE=cpu -t facerecognition-insightface:cpu -f Dockerfile .
+docker build --build-arg DEVICE=cuda -t facerecognition-insightface:cuda -f Dockerfile .
+docker build --build-arg DEVICE=openvino -t facerecognition-insightface:openvino -f Dockerfile .
+
+# Run (using local builds)
+docker run -d --name facerecognition \
+  -p 8080:5000 \
+  -e API_KEY="some-super-secret-api-key" \
+  -e MODEL_NAME="buffalo_l" \
+  -e DEVICE="cpu" \
+  -v model-cache:/app/models \
+  facerecognition-insightface:cpu
 ```
 
 ### Using Docker Compose
