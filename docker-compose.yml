@@ -1,0 +1,120 @@
+version: '3.8'
+
+services:
+  # Face recognition service with CPU support
+  facerecognition-cpu:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        DEVICE: cpu
+    container_name: facerecognition-cpu
+    ports:
+      - "8080:5000"
+    environment:
+      # Security
+      - API_KEY=${API_KEY:-your-super-secret-api-key}
+      
+      # Model configuration
+      - MODEL_NAME=${MODEL_NAME:-buffalo_l}
+      - DEVICE=cpu
+      
+      # Performance settings
+      - DET_SIZE=640,640
+      - GUNICORN_WORKERS=${WORKERS:-2}
+      - GUNICORN_THREADS=1
+      - REQ_TIMEOUT=300
+      - PRELOAD_MODELS=${PRELOAD_MODELS:-true}
+      
+    volumes:
+      # Persist model cache
+      - model-cache:/app/models
+      # Optionally mount api.key file
+      # - ./api.key:/app/api.key:ro
+    
+    restart: unless-stopped
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Resource limits (adjust based on your hardware)
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
+        reservations:
+          cpus: '2'
+          memory: 2G
+
+  # Face recognition service with CUDA GPU support
+  facerecognition-cuda:
+    profiles: ["cuda"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        DEVICE: cuda
+    container_name: facerecognition-cuda
+    ports:
+      - "8080:5000"
+    environment:
+      - API_KEY=${API_KEY:-your-super-secret-api-key}
+      - MODEL_NAME=${MODEL_NAME:-buffalo_l}
+      - DEVICE=cuda
+      - DET_SIZE=640,640
+      - GUNICORN_WORKERS=1  # Usually 1 per GPU
+      - PRELOAD_MODELS=true
+    
+    volumes:
+      - model-cache:/app/models
+    
+    restart: unless-stopped
+    
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # Face recognition service with OpenVINO (Intel GPU/CPU optimization)
+  facerecognition-openvino:
+    profiles: ["openvino"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        DEVICE: openvino
+    container_name: facerecognition-openvino
+    ports:
+      - "8080:5000"
+    environment:
+      - API_KEY=${API_KEY:-your-super-secret-api-key}
+      - MODEL_NAME=${MODEL_NAME:-buffalo_l}
+      - DEVICE=openvino
+      - DET_SIZE=640,640
+      - GUNICORN_WORKERS=${WORKERS:-2}
+      - PRELOAD_MODELS=true
+    
+    volumes:
+      - model-cache:/app/models
+    
+    # For Intel GPU support, may need additional device mappings
+    devices:
+      - /dev/dri:/dev/dri
+    
+    restart: unless-stopped
+
+volumes:
+  model-cache:
+    driver: local
+
+networks:
+  default:
+    name: facerecognition-network

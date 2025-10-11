@@ -1,111 +1,315 @@
-# Face Recognition External Model 👪
-This service implements the same [models](https://github.com/matiasdelellis/facerecognition/wiki/Models) that already exists in the Nextcloud [Face Recognition](https://github.com/matiasdelellis/facerecognition) application, but it allows to run it on an external machine, which can be faster, and thus free up important resources from the server where you have Nextcloud installed.
+# Face Recognition External Model - InsightFace Edition
 
-Take this also as a reference model, since you can implement any external model for the Nextcloud Face Recognition application. You can implement an external model using your favorite machine learning tool, with the programming language you love.. ❤️
+Improved version of [Face Recognition External Model](https://github.com/matiasdelellis/facerecognition-external-model) for Nextcloud, replacing dlib with InsightFace models following the Immich ML architecture.
 
-## Privacy
-Take into account how the service works. You must send a copy of each of your images (or of your clients), from your Nextcloud instance to the server where you run this service.
-The image files are sent via POST, and are immediately deleted after being analyzed. The shared API key is sent in the headers of each queries. This is only as secure as the connection between the two communicating devices. If you run it outside your local network, you should minimally use it behind an HTTPS proxy, which protects your data.
+## Why This Fork?
 
-So, please. Think seriously about data security before running this service outside of your local network. 😉
+The original uses dlib models. This version uses InsightFace models (same as Immich) which generally offer:
 
-## Usage
-### API key
-An shared API key is used to control access to the service. It can be any alphanumeric key, but it is recommended to create it automatically.
-```sh
-[matias@services ~]$ openssl rand -base64 32 > api.key
-[matias@services ~]$ cat api.key 
-NZ9ciQuH0djnyyTcsDhNL7so6SVrR01znNnv0iXLrSk=
+- More modern architecture (RetinaFace for detection, ArcFace for recognition)
+- Multiple acceleration options (CPU, CUDA, OpenVINO)
+- Larger embedding dimensions (512 vs 128)
+- More recent training data
+
+**Note**: Performance will vary based on your hardware and images. Test with your own data to evaluate.
+
+## Features
+
+### Multiple Acceleration Backends
+
+- **CPU**: Works everywhere, good for small libraries
+- **CUDA**: NVIDIA GPU acceleration
+- **OpenVINO**: Intel GPU/CPU optimization
+
+### Available Models
+
+- `buffalo_s` - Small/fastest
+- `buffalo_m` - Medium
+- `buffalo_l` - Large (default)
+- `antelopev2` - Alternative high-accuracy model
+
+### API Compatibility
+
+Maintains full compatibility with Nextcloud Face Recognition app:
+
+- Same endpoints: `/detect`, `/compute`, `/open`, `/health`, `/welcome`
+- Same request/response format
+- Drop-in replacement
+
+## Installation
+
+### Prerequisites
+
+```bash
+# Install Docker and Docker Compose
+# For GPU support:
+#   - CUDA: Install nvidia-docker2
+#   - OpenVINO: Ensure /dev/dri device is available
 ```
 
-### Docker
-The fastest way to get this up and running without manual installation and configuration is a docker image. You only have to define the api key and the exposed port:
-```sh
-# Expose the service on 8080 TCP port and send the API key as a file. By default it uses model 4 for facial recognition.
-[matias@services ~]$ docker run --rm -i -p 8080:5000 -v /path/to/api.key:/app/api.key --name facerecognition matiasdelellis/facerecognition-external-model:v0.2.0
-# You can pass the API key as an environment variable, but it is a practice that is not recommended because it is exposed on the command line.
-[matias@services ~]$ docker run --rm -i -p 8080:5000 -e API_KEY="NZ9ciQuH0djnyyTcsDhNL7so6SVrR01znNnv0iXLrSk=" --name facerecognition matiasdelellis/facerecognition-external-model:v0.2.0
-# You can change the default model using the `FACE_MODEL` environment variable.
-# If you do not set the API key, it remains "some-super-secret-api-key". Needless to say, it is not advisable to leave it by default.
-[matias@services ~]$ docker run --rm -i -p 8080:5000 -e FACE_MODEL=3 --name facerecognition matiasdelellis/facerecognition-external-model:v0.2.0 
-```
-If you want to use multiple connections at once (enough memory is mandatory), either for multiple instances or for faster procession large amounts of photos (only a single core is used for each process) you can set the enviroment variable "GUNICORN_WORKERS" to the desired number.
+### Build for CPU
 
-### Test
-Check that the service is running using the `/welcome` endpoint.
-```sh
-[matias@services ~]$ curl localhost:8080/welcome
-{"facerecognition-external-model":"welcome","model":3,"version":"0.2.0"}
+```bash
+# Build
+docker build --build-arg DEVICE=cpu -t facerecognition-insightface:cpu -f Dockerfile .
+
+# Run
+docker run -d --name facerecognition \
+  -p 8080:5000 \
+  -e API_KEY="some-super-secret-api-key" \
+  -e MODEL_NAME="buffalo_l" \
+  -e DEVICE="cpu" \
+  -v model-cache:/app/models \
+  facerecognition-insightface:cpu
 ```
 
-You must obtain the IP where you run the service.
-```sh
-[matias@services facerecognition-external-model]$ hostname -I
-192.168.1.123
+### Build for CUDA
+
+```bash
+# Build
+docker build --build-arg DEVICE=cuda -t facerecognition-insightface:cuda -f Dockerfile .
+
+# Run
+docker run -d --name facerecognition \
+  --gpus all \
+  -p 8080:5000 \
+  -e API_KEY="some-super-secret-api-key" \
+  -e MODEL_NAME="buffalo_l" \
+  -e DEVICE="cuda" \
+  -v model-cache:/app/models \
+  facerecognition-insightface:cuda
 ```
 
-...and do the same test on the server that hosts your nextcloud instance.
-```sh
-[matias@cloud ~]$ curl 192.168.1.123:8080/welcome
-{"facerecognition-external-model":"welcome","model":3,"version":"0.2.0"}
+### Build for OpenVINO
+
+```bash
+# Build
+docker build --build-arg DEVICE=openvino -t facerecognition-insightface:openvino -f Dockerfile .
+
+# Run
+docker run -d --name facerecognition \
+  --device /dev/dri:/dev/dri \
+  -p 8080:5000 \
+  -e API_KEY="some-super-secret-api-key" \
+  -e MODEL_NAME="buffalo_l" \
+  -e DEVICE="openvino" \
+  -v model-cache:/app/models \
+  facerecognition-insightface:openvino
 ```
 
-## Configure Nextcloud
-If the service is accessible, you can now configure Nextcloud indicating that you have an external model at this address, and the API key used to communicate with it.
-```sh
-[matias@cloud nextcloud]$ php occ config:system:set facerecognition.external_model_url --value 192.168.1.123:8080
-System config value facerecognition.external_model_url set to string 192.168.1.123:8080
-[matias@cloud nextcloud]$ php occ config:system:set facerecognition.external_model_api_key --value NZ9ciQuH0djnyyTcsDhNL7so6SVrR01znNnv0iXLrSk=
-System config value facerecognition.external_model_api_key set to string NZ9ciQuH0djnyyTcsDhNL7so6SVrR01znNnv0iXLrSk=
+### Using Docker Compose
+
+```bash
+# CPU (default)
+docker-compose up -d facerecognition-cpu
+
+# CUDA
+docker-compose --profile cuda up -d facerecognition-cuda
+
+# OpenVINO
+docker-compose --profile openvino up -d facerecognition-openvino
 ```
 
-You can now configure the external model (which is the 5), in the same way that it did until now.
+## Configuration
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `API_KEY` | `some-super-secret-api-key` | Shared API key for authentication |
+| `MODEL_NAME` | `buffalo_l` | InsightFace model: buffalo_s/m/l or antelopev2 |
+| `DEVICE` | `cpu` | Acceleration backend: cpu/cuda/openvino |
+| `MAX_DET_SIZE` | `2048` | Detection input size, max of width and height |
+| `GUNICORN_WORKERS` | `1` | Number of worker processes |
+| `REQ_TIMEOUT` | `300` | Request timeout in seconds |
+| `PRELOAD_MODELS` | `false` | Preload models at startup |
+| `PORT` | `5000` | Server port |
+
+### Generate Secure API Key
+
+```bash
+openssl rand -base64 32 > api.key
 ```
-[matias@cloud nextcloud]$ php occ face:setup -m 5
-The files of model 5 (ExternalModel) are already installed
-The model 5 (ExternalModel) was configured as default
+
+## Nextcloud Configuration
+
+```bash
+# Set external model URL
+php occ config:system:set facerecognition.external_model_url \
+  --value "http://your-server:8080"
+
+# Set API key
+php occ config:system:set facerecognition.external_model_api_key \
+  --value "some-super-secret-api-key"
+
+# Enable external model (model 5)
+php occ face:setup -m 5
+
+# Verify
+php occ face:stats
 ```
 
-... and that's all my friends. You can now continue with the backgroud_task. :smiley:
+## Testing
 
-Or if you want to use parallel processing during an import:
-```sh
-#!/bin/bash
+```bash
+# Test service
+curl http://localhost:8080/welcome
 
-set -o errexit
+# Should return:
+# {
+#   "facerecognition-external-model": "InsightFace Edition",
+#   "version": "2.0.0",
+#   "model": "buffalo_l",
+#   "device": "cpu",
+#   "providers": ["CPUExecutionProvider"]
+# }
 
-dir=$(pwd)
-# your nextcloud path
-cd /var/www/nextcloud/html/
-sudo -u www-data php --define apc.enable_cli=1 ./occ face:stats
-
-echo -n "Select user for import & parallel processing:"
-read user
-echo ""
-
-echo "Enabling facerecognition for $user..."
-sudo -u www-data php --define apc.enable_cli=1 ./occ user:setting $user facerecognition enabled true
-echo "Done"
-
-echo "Synchronizing $user files..."
-sudo -u www-data php --define apc.enable_cli=1 ./occ face:background_job -u $user --sync-mode
-echo "Done"
-
-echo "Analyzing $user files..."
-# the upper number has to be lower or equal to the number of GUNICORN_WORKERS
-for i in {1..3}; do
-    sudo -u www-data php --define apc.enable_cli=1 ./occ face:background_job -u $user --analyze-mode &
-    pids[${i}]=$!
-done
-
-for pid in ${pids[*]}; do
-    wait $pid
-done
-echo "Done"
-
-echo "Calculating $user face clusters..."
-sudo -u www-data php --define apc.enable_cli=1 ./occ face:background_job -u user --cluster-mode
-echo "Done"
-cd $dir
+# Test detection with an image
+curl -X POST http://localhost:8080/detect \
+  -H "x-api-key: some-super-secret-api-key" \
+  -F "file=@test.jpg"
 ```
-That runs quite long, best runing it inside a tmux/screen session.
+
+## Migration from Original
+
+### Important Notes
+
+1. **Embeddings are incompatible** - InsightFace uses 512-dim embeddings vs dlib's 128-dim
+2. **Must regenerate face data** - All faces need to be re-analyzed
+3. **API is compatible** - No changes needed to Nextcloud configuration except URL/key
+
+### Migration Steps
+
+```bash
+# 1. Start new container (on different port initially)
+docker run -d --name facerecognition-new \
+  -p 5000:5000 \
+  -e API_KEY="new-api-key" \
+  facerecognition-insightface:cpu
+
+# 2. Test new container
+curl http://localhost:5000/welcome
+
+# 3. Update Nextcloud configuration
+php occ config:system:set facerecognition.external_model_url \
+  --value "http://your-server:5000"
+php occ config:system:set facerecognition.external_model_api_key \
+  --value "new-api-key"
+
+# 4. Reset and regenerate face data
+php occ face:reset --all
+php occ face:background_job --all --analyze-mode
+
+# 5. Once confirmed working, stop old container and switch to port 8080
+```
+
+## Device-Specific Notes
+
+### CPU
+
+- Works on any x86_64 system
+- Good for smaller libraries (<20k images)
+- Consider using `buffalo_s` model for better speed
+
+### CUDA
+
+- Requires NVIDIA GPU with CUDA support
+- Requires nvidia-docker2
+- Best performance for large libraries
+- Use `buffalo_l` or `antelopev2` for maximum accuracy
+
+### OpenVINO
+
+- Optimized for Intel hardware (CPUs and integrated GPUs)
+- Good middle ground between CPU and CUDA
+- Requires `/dev/dri` device access for GPU support
+- Works on CPU-only mode as well
+
+## Troubleshooting
+
+### Models Not Downloading
+
+Models download on first use. Check logs:
+
+```bash
+docker logs facerecognition
+```
+
+For manual download:
+
+```bash
+docker exec facerecognition python3 -c \
+  "from insightface.app import FaceAnalysis; \
+   FaceAnalysis(name='buffalo_l', root='/app/models')"
+```
+
+### Wrong Execution Provider
+
+Check which provider is actually being used:
+
+```bash
+curl http://localhost:8080/welcome | jq '.providers'
+```
+
+Expected outputs:
+
+- CPU: `["CPUExecutionProvider"]`
+- CUDA: `["CUDAExecutionProvider", "CPUExecutionProvider"]`
+- OpenVINO: `["OpenVINOExecutionProvider", "CPUExecutionProvider"]`
+
+### Out of Memory
+
+```bash
+# Reduce workers
+docker run ... -e GUNICORN_WORKERS=1 ...
+
+# Use smaller model
+docker run ... -e MODEL_NAME=buffalo_s ...
+
+# Reduce detection size
+docker run ... -e DET_SIZE=1024 ...
+```
+
+### Slow Performance
+
+1. Check if using intended device:
+
+   ```bash
+   docker logs facerecognition | grep "Using device"
+   ```
+
+2. For CPU: Use smaller model or reduce detection size
+3. For GPU: Ensure GPU is actually being used (check nvidia-smi or intel_gpu_top)
+4. For OpenVINO: Verify GPU device is accessible
+
+### Local Development
+
+```bash
+# Install dependencies
+pip install -r requirements-cpu.txt
+
+# Run locally
+export API_KEY="test-key"
+export MODEL_NAME="buffalo_l"
+export DEVICE="cpu"
+python facerecognition_insightface.py
+```
+
+## Architecture
+
+Following Immich's ML architecture:
+
+- Multi-stage Docker builds for different acceleration backends
+- ONNX Runtime with pluggable execution providers
+- Device-aware provider selection
+- Graceful fallback to CPU if preferred provider unavailable
+
+## Acknowledgments
+
+- Original project: [facerecognition-external-model](https://github.com/matiasdelellis/facerecognition-external-model) by Matias De lellis
+- InsightFace: [InsightFace](https://github.com/deepinsight/insightface) by DeepInsight
+- Immich ML: [Immich](https://github.com/immich-app/immich) for architecture inspiration
+
+## License
+
+Same license as original project. InsightFace models used according to their respective licenses.

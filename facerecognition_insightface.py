@@ -1,277 +1,363 @@
-from typing import Callable, Tuple
+from typing import List, Dict, Any
 from flask import Flask, request, abort
 from functools import wraps
-import dlib
 import os
 import json
-import numpy
-
+import numpy as np
+import cv2
+from insightface.app import FaceAnalysis
+from insightface.model_zoo import get_model
 
 # Info
-PACKAGE_VERSION = "1.0.0"
+PACKAGE_VERSION = "0.1.0"
 
-# Model files
-DETECTOR_PATH = "vendor/models/mmod_human_face_detector.dat"
-PREDICTOR_PATH = "vendor/models/shape_predictor_5_face_landmarks.dat"
-FACE_REC_MODEL_PATH = "vendor/models/dlib_face_recognition_resnet_model_v1.dat"
+# Model globals
+face_app: FaceAnalysis = None
+face_model = None
+MODEL_NAME = os.environ.get("MODEL_NAME", "buffalo_l")
 
-CNN_DETECTOR: object = None
-PREDICTOR: object = None
-FACE_REC: object = None
+# Directory for temporary images
+TEMP_DIR = "images"
 
-MAX_IMG_SIZE = 3840 * 2160
-
-folder_path = "images"
-
-# Model service
 app = Flask(__name__)
-try:
-    FACE_MODEL = int(os.environ["FACE_MODEL"])
-except KeyError:
-    FACE_MODEL = 4
-
-# model 1 face detection
-def cnn_detect(img: numpy.ndarray) -> list:
-    dets: list = CNN_DETECTOR(img)
-
-    faces = []
-    for det in dets:
-        rec: object = dlib.rectangle(
-            det.rect.left(), det.rect.top(), det.rect.right(), det.rect.bottom()
-        )
-        shape: dlib.full_object_detection = PREDICTOR(img, rec)
-        descriptor: dlib.vector = FACE_REC.compute_face_descriptor(img, shape)
-        faces.append(
-            {
-                "detection_confidence": det.confidence,
-                "left": det.rect.left(),
-                "top": det.rect.top(),
-                "right": det.rect.right(),
-                "bottom": det.rect.bottom(),
-                "landmarks": shapeToList(shape),
-                "descriptor": descriptorToList(descriptor),
-            }
-        )
-    return faces
 
 
-# model 3 face detection
-def hog_detect(img: numpy.ndarray) -> list:
-    dets: list = HOG_DETECTOR(img, 1)
+MAX_DET_SIZE = int(os.environ.get("MAX_DET_SIZE", 2048))
+# Ensure multiple of 32
+MAX_DET_SIZE = (MAX_DET_SIZE // 32) * 32
 
-    faces = []
-    for det in dets:
-        landmarks: dlib.full_object_detection = PREDICTOR(img, det)
-        descriptor = FACE_REC.compute_face_descriptor(img, landmarks)
-        faces.append(
-            {
-                "detection_confidence": 1.1,
-                "left": det.left(),
-                "top": det.top(),
-                "right": det.right(),
-                "bottom": det.bottom(),
-                "landmarks": shapeToList(landmarks),
-                "descriptor": descriptorToList(descriptor),
-            }
-        )
-    return faces
+def compute_det_size(img_shape):
+    """Scale image to fit within MAX_DET_SIZE, rounded to multiple of 32."""
+    h, w = img_shape[:2]
+    scale = min(MAX_DET_SIZE / max(h, w), 1.0)
+    new_w, new_h = int(w * scale), int(h * scale)
+    new_w = max((new_w // 32) * 32, 32)
+    new_h = max((new_h // 32) * 32, 32)
+    return (new_w, new_h)
 
 
-# model 4 face detection
-def cnn_hog_detect(img: numpy.ndarray) -> Tuple[int, list]:
-    cnn_faces = cnn_detect(img)
-    if len(cnn_faces) == 0:
-        return []
-
-    hog_faces = hog_detect(img)
-    detected_faces = []
-    for proposed_face in cnn_faces:
-        detected_faces.append(validate_face(proposed_face, hog_faces))
-    return detected_faces
-
-
-DETECT_FACES_FUNCTIONS: Tuple[Callable[[numpy.ndarray], Tuple[int, list]]] = (
-    None,
-    cnn_detect,
-    None,
-    hog_detect,
-    cnn_hog_detect,
-)
-
-def open_dlib_models():
-    global CNN_DETECTOR, HOG_DETECTOR, PREDICTOR, FACE_REC
-
-    if FACE_REC is not None:
-        return
-
-    # we don't need the cnn detector for model 3
-    if FACE_MODEL != 3:
-        CNN_DETECTOR = dlib.cnn_face_detection_model_v1(DETECTOR_PATH)
-    # we need the hog detector for models 3 and 4
-    if FACE_MODEL in (3, 4):
-        HOG_DETECTOR = dlib.get_frontal_face_detector()
-
-    PREDICTOR = dlib.shape_predictor(PREDICTOR_PATH)
-    FACE_REC = dlib.face_recognition_model_v1(FACE_REC_MODEL_PATH)
-
-
-#
-# Model service
-#
-
-# Security of model service
 def require_appkey(view_function):
+    """Security decorator for API key authentication"""
     @wraps(view_function)
     def decorated_function(*args, **kwargs):
         if 'API_KEY' in os.environ:
             key = os.environ.get('API_KEY')
         else:
-            with open('api.key', 'r') as apikey:
-                key = apikey.read().replace('\n', '')
+            try:
+                with open('api.key', 'r') as apikey:
+                    key = apikey.read().replace('\n', '')
+            except FileNotFoundError:
+                key = 'some-super-secret-api-key'
+        
         if request.headers.get('x-api-key') and request.headers.get('x-api-key') == key:
             return view_function(*args, **kwargs)
         else:
             abort(401)
-
+    
     return decorated_function
 
-# Endpoints
+
+def load_insightface_models():
+    """Load InsightFace models for face detection and recognition"""
+    global face_app, face_model
+    
+    if face_app is not None:
+        return
+    
+    print(f"Loading InsightFace model: {MODEL_NAME}")
+    
+    # Determine execution providers based on device
+    device = os.environ.get('DEVICE', 'cpu').lower()
+    providers = get_providers(device)
+    
+    print(f"Using device: {device}")
+    print(f"Execution providers: {providers}")
+    
+    # Initialize FaceAnalysis app for detection
+    face_app = FaceAnalysis(
+        name=MODEL_NAME,
+        root='./models',
+        allowed_modules=['detection', 'recognition'],
+        providers=providers
+    )
+    
+    # Prepare with context
+    # For OpenVINO/CUDA, we use ctx_id=0, for CPU we use -1
+    ctx_id = 0 if device in ['cuda', 'openvino'] else -1
+    det_size = (MAX_DET_SIZE, MAX_DET_SIZE)
+    face_app.prepare(ctx_id=ctx_id, det_size=det_size)
+    
+    print(f"InsightFace model loaded successfully")
+
+
+def get_providers(device: str) -> list:
+    """Get ONNX Runtime execution providers based on device"""
+    import onnxruntime as ort
+    
+    available_providers = ort.get_available_providers()
+    print(f"Available providers: {available_providers}")
+    
+    # Define provider preference based on device
+    provider_map = {
+        'cuda': ['CUDAExecutionProvider', 'CPUExecutionProvider'],
+        'openvino': ['OpenVINOExecutionProvider', 'CPUExecutionProvider'],
+        'cpu': ['CPUExecutionProvider']
+    }
+    
+    preferred_providers = provider_map.get(device, ['CPUExecutionProvider'])
+    
+    # Only use providers that are actually available
+    providers = [p for p in preferred_providers if p in available_providers]
+    
+    if not providers:
+        print(f"Warning: Preferred providers {preferred_providers} not available, falling back to CPU")
+        providers = ['CPUExecutionProvider']
+    
+    return providers
+
+
+def image_to_numpy(image_path: str) -> np.ndarray:
+    """Load image from path and convert to numpy array"""
+    img = cv2.imread(image_path)
+    if img is None:
+        raise ValueError(f"Could not load image: {image_path}")
+    # Convert BGR to RGB
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    return img
+
+
+def serialize_face(face) -> Dict[str, Any]:
+    """Convert InsightFace detection to Nextcloud-compatible format"""
+    bbox = face.bbox.astype(int)
+    
+    # InsightFace uses landmarks in different order, reformat for compatibility
+    landmarks = []
+    if face.kps is not None:
+        for point in face.kps:
+            landmarks.append({"x": int(point[0]), "y": int(point[1])})
+    
+    # Serialize embedding as list of floats
+    embedding = face.normed_embedding.tolist() if hasattr(face, 'normed_embedding') else face.embedding.tolist()
+    
+    return {
+        "detection_confidence": float(face.det_score),
+        "left": int(bbox[0]),
+        "top": int(bbox[1]),
+        "right": int(bbox[2]),
+        "bottom": int(bbox[3]),
+        "landmarks": landmarks,
+        "descriptor": embedding
+    }
+
+
 @app.route("/detect", methods=["POST"])
 @require_appkey
 def detect_faces() -> dict:
-    uploaded_file = request.files["file"]
-
+    """Detect faces in uploaded image"""
+    uploaded_file = request.files.get("file")
+    if not uploaded_file:
+        abort(400, "No file provided")
+    
     filename = os.path.basename(uploaded_file.filename)
+    image_path = os.path.join(TEMP_DIR, filename)
+    
+    try:
+        # Save uploaded file
+        uploaded_file.save(image_path)
+        
+        # Load image
+        img = image_to_numpy(image_path)
+        
+        # Check image size
+        if max(img.shape[0], img.shape[1]) > MAX_DET_SIZE:
+            abort(412, "Image too large")
+        
+        # Ensure models are loaded
+        if face_app is None:
+            load_insightface_models()
+        
+        # Get minimum score threshold from request options, or use default
+        # Nextcloud sends this in the request,
+        min_score = 0.5  # Default if not specified
+        try:
+            # The options are sent as form data in Nextcloud's request
+            # Format varies, check both possible locations
+            if 'minScore' in request.form:
+                min_score = float(request.form.get('minScore', 0.5))
+            elif 'options' in request.form:
+                options = json.loads(request.form.get('options', '{}'))
+                min_score = float(options.get('minScore', 0.5))
+        except (ValueError, json.JSONDecodeError):
+            pass  # Use default
+        
+        # Detect faces
+        faces = face_app.get(img)
+        
+        # Filter by confidence score (from request or default)
+        faces = [face for face in faces if face.det_score >= min_score]
+        
+        # Serialize faces
+        serialized_faces = [serialize_face(face) for face in faces]
+        
+        return {
+            "filename": filename,
+            "faces-count": len(serialized_faces),
+            "faces": serialized_faces
+        }
+    
+    finally:
+        # Clean up temporary file
+        if os.path.exists(image_path):
+            os.remove(image_path)
 
-    image_path = os.path.join(folder_path, filename)
-    uploaded_file.save(image_path)
-    img: numpy.ndarray = dlib.load_rgb_image(image_path)
-
-    if numpy.shape(img)[0] * numpy.shape(img)[1] > MAX_IMG_SIZE:
-        abort(412)
-
-    if FACE_REC is None:
-        open_dlib_models()
-
-    faces = DETECT_FACES_FUNCTIONS[FACE_MODEL](img)
-
-    os.remove(image_path)
-
-    return {"filename": filename, "faces-count": len(faces), "faces": faces}
 
 @app.route("/compute", methods=["POST"])
 @require_appkey
 def compute():
-    uploaded_file = request.files["file"]
-    face_json: dict = json.loads(request.form.get("face"))
+    """Compute face embedding for a specific face region"""
+    uploaded_file = request.files.get("file")
+    face_json_str = request.form.get("face")
+    
+    if not uploaded_file or not face_json_str:
+        abort(400, "Missing file or face data")
+    
+    try:
+        face_data = json.loads(face_json_str)
+    except json.JSONDecodeError:
+        abort(400, "Invalid face JSON")
+    
+    filename = os.path.basename(uploaded_file.filename)
+    image_path = os.path.join(TEMP_DIR, filename)
+    
+    try:
+        # Save uploaded file
+        uploaded_file.save(image_path)
+        
+        # Load image
+        img = image_to_numpy(image_path)
+        
+        # Check image size
+        if max(img.shape[0], img.shape[1]) > MAX_DET_SIZE:
+            abort(412, "Image too large")
+        
+        # Ensure models are loaded
+        if face_app is None:
+            load_insightface_models()
+        
+        # Detect all faces and find the one matching the bounding box
+        faces = face_app.get(img)
+        
+        # Find face closest to provided bounding box
+        target_bbox = [
+            face_data.get("left", 0),
+            face_data.get("top", 0),
+            face_data.get("right", 0),
+            face_data.get("bottom", 0)
+        ]
+        
+        best_match = None
+        best_overlap = 0
+        
+        for face in faces:
+            bbox = face.bbox.astype(int)
+            overlap = calculate_iou(target_bbox, bbox.tolist())
+            if overlap > best_overlap:
+                best_overlap = overlap
+                best_match = face
+        
+        if best_match is None:
+            # If no match found, return original face_data with empty descriptor
+            face_data["descriptor"] = []
+            face_data["landmarks"] = []
+            return {"filename": filename, "face": face_data}
+        
+        # Update face data with computed values
+        if best_match.kps is not None:
+            landmarks = []
+            for point in best_match.kps:
+                landmarks.append({"x": int(point[0]), "y": int(point[1])})
+            face_data["landmarks"] = landmarks
+        
+        embedding = (best_match.normed_embedding if hasattr(best_match, 'normed_embedding') 
+                    else best_match.embedding)
+        face_data["descriptor"] = embedding.tolist()
+        
+        return {"filename": filename, "face": face_data}
+    
+    finally:
+        # Clean up temporary file
+        if os.path.exists(image_path):
+            os.remove(image_path)
 
-    filename: str = os.path.basename(uploaded_file.filename)
-    uploaded_file.save(filename)
 
-    img: numpy.ndarray = dlib.load_rgb_image(filename)
+def calculate_iou(box1: List[int], box2: List[int]) -> float:
+    """Calculate Intersection over Union for two bounding boxes"""
+    x1_min, y1_min, x1_max, y1_max = box1
+    x2_min, y2_min, x2_max, y2_max = box2
+    
+    # Calculate intersection
+    x_left = max(x1_min, x2_min)
+    y_top = max(y1_min, y2_min)
+    x_right = min(x1_max, x2_max)
+    y_bottom = min(y1_max, y2_max)
+    
+    if x_right < x_left or y_bottom < y_top:
+        return 0.0
+    
+    intersection_area = (x_right - x_left) * (y_bottom - y_top)
+    
+    # Calculate union
+    box1_area = (x1_max - x1_min) * (y1_max - y1_min)
+    box2_area = (x2_max - x2_min) * (y2_max - y2_min)
+    union_area = box1_area + box2_area - intersection_area
+    
+    return intersection_area / union_area if union_area > 0 else 0.0
 
-    if numpy.shape(img)[0] * numpy.shape(img)[1] > MAX_IMG_SIZE:
-        abort(412)
-
-    if FACE_REC is None:
-        open_dlib_models()
-
-    shape: dlib.full_object_detection = PREDICTOR(img, jsonToRect(face_json))
-    descriptor: dlib.vector = FACE_REC.compute_face_descriptor(img, shape)
-
-    os.remove(filename)
-
-    face_json["landmarks"] = shapeToList(shape)
-    face_json["descriptor"] = descriptorToList(descriptor)
-
-    return {"filename": filename, "face": face_json}
 
 @app.route("/open")
 @require_appkey
 def open_model():
-    open_dlib_models()
-    return {"preferred_mimetype": "image/jpeg", "maximum_area": MAX_IMG_SIZE}
+    """Pre-load models and return configuration"""
+    load_insightface_models()
+    return {
+        "preferred_mimetype": "image/jpeg",
+        "maximum_area": MAX_DET_SIZE^2,
+        "model": MODEL_NAME
+    }
+
 
 @app.route("/health")
 def health():
+    """Health check endpoint"""
     return 'ok'
+
 
 @app.route("/welcome")
 def welcome():
-    if (
-        (
-            not os.path.exists(DETECTOR_PATH)
-        )
-        or (
-            not os.path.exists(PREDICTOR_PATH)
-        )
-        or (
-            not os.path.exists(FACE_REC_MODEL_PATH)
-        )
-    ):
-        return {
-            "facerecognition-external-model":
-                "Neural network files are missing. Install them with 'make download-models",
-            "version": PACKAGE_VERSION
-        }
-    return {"facerecognition-external-model": "welcome", "version": PACKAGE_VERSION, "model": FACE_MODEL}
-
-#
-# Conversion utilities
-#
-def shapeToList(shape):
-    partList = []
-    for i in range(shape.num_parts):
-        partList.append({"x": shape.part(i).x, "y": shape.part(i).y})
-    return partList
+    """Welcome endpoint with version info"""
+    model_status = "loaded" if face_app is not None else "not loaded"
+    device = os.environ.get('DEVICE', 'cpu')
+    
+    response = {
+        "facerecognition-external-model": "InsightFace Edition",
+        "version": PACKAGE_VERSION,
+        "model": MODEL_NAME,
+        "model_status": model_status,
+        "device": device
+    }
+    
+    # Add provider info if model is loaded
+    if face_app is not None:
+        try:
+            import onnxruntime as ort
+            response["providers"] = ort.get_available_providers()
+        except:
+            pass
+    
+    return response
 
 
-def descriptorToList(descriptor):
-    descriptorList = []
-    for i in range(len(descriptor)):
-        descriptorList.append(descriptor[i])
-    return descriptorList
-
-
-def jsonToRect(json) -> dlib.rectangle:
-    return dlib.rectangle(
-        json["top"], json["right"], json["bottom"], json["left"]
-    )
-
-
-def overlap_percent(first: dlib.rectangle, second: dlib.rectangle) -> float:
-    # if there is not intersection, return 0.0
-    # (right is a larger value than left, bottom is larger than top)
-    if (
-        first["left"] >= second["right"]
-        or second["left"] >= first["right"]
-        or first["top"] >= second["bottom"]
-        or second["top"] >= first["bottom"]
-    ):
-        return 0.0
-
-    # find the corners of the overlapping area
-    left = max(first["left"], second["left"])
-    right = max(first["right"], second["right"])
-    top = max(first["top"], second["top"])
-    bottom = max(first["bottom"], second["bottom"])
-
-    # areas
-    first_area = (first["right"] - first["left"]) * (
-        first["bottom"] - first["top"]
-    )
-    second_area = (second["right"] - second["left"]) * (
-        second["bottom"] - second["top"]
-    )
-    overlap_area = (right - left) * (bottom - top)
-
-    return overlap_area / (first_area + second_area - overlap_area)
-
-
-def validate_face(proposed_face: dict, face_list: list) -> dict:
-    for face in face_list:
-        overlap = overlap_percent(proposed_face, face)
-        if overlap >= 0.35:
-            return proposed_face
-    proposed_face["detection_confidence"] *= 0.8
-    return proposed_face
+if __name__ == "__main__":
+    # Ensure temp directory exists
+    os.makedirs(TEMP_DIR, exist_ok=True)
+    app.run(host='0.0.0.0', port=5000)
