@@ -194,7 +194,7 @@ def serialize_face(face) -> Dict[str, Any]:
             landmarks.append({"x": int(point[0]), "y": int(point[1])})
     
     # Serialize embedding as list of floats
-    embedding = face.normed_embedding.tolist() if hasattr(face, 'normed_embedding') else face.embedding.tolist()
+    embedding = face.embedding.tolist()
     
     return {
         "detection_confidence": float(face.det_score),
