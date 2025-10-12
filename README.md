@@ -4,7 +4,7 @@ Improved version of [Face Recognition External Model](https://github.com/matiasd
 
 ## Why This Fork?
 
-The original uses dlib models. This version uses InsightFace models (same as Immich) which generally offer:
+The original uses dlib models. This version uses InsightFace models which generally offer:
 
 - More modern architecture (RetinaFace for detection, ArcFace for recognition)
 - Multiple acceleration options (CPU, CUDA, OpenVINO)
