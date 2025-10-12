@@ -109,10 +109,15 @@ def get_providers(device: str) -> list:
             gpu_devices = [device_id for device_id in openvino_device_ids if device_id.startswith("GPU")]
             
             if gpu_devices:
-                # Use GPU configuration
+                # Use GPU configuration with configurable precision
+                precision = os.environ.get('OPENVINO_PREC', 'FP32')
+                # Intel GPU only supports FP32 and FP16 precision
+                if precision not in ['FP32', 'FP16']:
+                    print(f"Warning: Unsupported precision '{precision}' for Intel GPU. Defaulting to FP32.")
+                    precision = 'FP32'
                 openvino_options = {
                     'device_type': 'GPU',    # Use GPU device
-                    'precision': 'FP32',     # Use FP32 precision
+                    'precision': precision,  # Configurable precision via OPENVINO_PREC env var
                 }
                 print(f"Using OpenVINO with Intel GPU: {openvino_options}")
                 return [('OpenVINOExecutionProvider', openvino_options), 'CPUExecutionProvider']
