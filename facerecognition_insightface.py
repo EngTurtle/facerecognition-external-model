@@ -111,7 +111,7 @@ def get_providers(device: str) -> list:
             if gpu_devices:
                 # Use GPU configuration
                 openvino_options = {
-                    'device_type': 'GPU.0',  # Use first GPU device
+                    'device_type': 'GPU',    # Use GPU device
                     'precision': 'FP32',     # Use FP32 precision
                 }
                 print(f"Using OpenVINO with Intel GPU: {openvino_options}")
