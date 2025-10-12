@@ -205,7 +205,7 @@ php occ config:system:set facerecognition.external_model_api_key \
 php occ face:reset --all
 php occ face:background_job --all --analyze-mode
 
-# 5. Once confirmed working, stop old container and switch to port 8080
+# 5. Once confirmed working, stop old container
 ```
 
 ## Device-Specific Notes
