@@ -135,6 +135,16 @@ def get_providers(device: str) -> list:
             print(f"Using OpenVINO with CPU: {openvino_options}")
             return [('OpenVINOExecutionProvider', openvino_options), 'CPUExecutionProvider']
     
+    # Configure CUDA provider with options (similar to Immich ML)
+    if device == 'cuda' and 'CUDAExecutionProvider' in available_providers:
+        device_id = os.environ.get('CUDA_DEVICE_ID', '0')
+        cuda_options = {
+            'arena_extend_strategy': 'kSameAsRequested',
+            'device_id': device_id
+        }
+        print(f"Using CUDA with device {device_id}: {cuda_options}")
+        return [('CUDAExecutionProvider', cuda_options), 'CPUExecutionProvider']
+    
     # Define provider preference based on device
     provider_map = {
         'cuda': ['CUDAExecutionProvider', 'CPUExecutionProvider'],

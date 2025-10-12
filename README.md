@@ -122,6 +122,7 @@ docker-compose --profile openvino up -d facerecognition-openvino
 | `API_KEY` | `some-super-secret-api-key` | Shared API key for authentication |
 | `MODEL_NAME` | `buffalo_l` | InsightFace model: buffalo_s/m/l or antelopev2 |
 | `DEVICE` | `cpu` | Acceleration backend: cpu/cuda/openvino |
+| `CUDA_DEVICE_ID` | `0` | CUDA device ID for multi-GPU systems |
 | `OPENVINO_PREC` | `FP32` | OpenVINO precision for Intel GPU: FP32/FP16 |
 | `MAX_DET_SIZE` | `2048` | Detection input size, max of width and height |
 | `GUNICORN_WORKERS` | `1` | Number of worker processes |
