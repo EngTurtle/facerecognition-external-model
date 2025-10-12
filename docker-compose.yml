@@ -8,15 +8,9 @@ services:
     ports:
       - "8080:5000"
     environment:
-      # Security
       - API_KEY=${API_KEY:-your-super-secret-api-key}
-      
-      # Model configuration
       - MODEL_NAME=${MODEL_NAME:-buffalo_l}
-      - DEVICE=cpu
-      
-      # Performance settings
-      - DET_SIZE=640,640
+      - MAX_DET_SIZE=${MAX_DET_SIZE:-2048}
       - GUNICORN_WORKERS=${WORKERS:-2}
       - GUNICORN_THREADS=1
       - REQ_TIMEOUT=300
@@ -27,25 +21,7 @@ services:
       - model-cache:/app/models
       # Optionally mount api.key file
       # - ./api.key:/app/api.key:ro
-    
     restart: unless-stopped
-    
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    
-    # Resource limits (adjust based on your hardware)
-    deploy:
-      resources:
-        limits:
-          cpus: '4'
-          memory: 4G
-        reservations:
-          cpus: '2'
-          memory: 2G
 
   # Face recognition service with CUDA GPU support
   facerecognition-cuda:
@@ -57,8 +33,8 @@ services:
     environment:
       - API_KEY=${API_KEY:-your-super-secret-api-key}
       - MODEL_NAME=${MODEL_NAME:-buffalo_l}
-      - DEVICE=cuda
-      - DET_SIZE=640,640
+      - CUDA_DEVICE_ID=${CUDA_DEVICE_ID:-0}
+      - MAX_DET_SIZE=${MAX_DET_SIZE:-2048}
       - GUNICORN_WORKERS=1  # Usually 1 per GPU
       - PRELOAD_MODELS=true
     
@@ -85,9 +61,10 @@ services:
     environment:
       - API_KEY=${API_KEY:-your-super-secret-api-key}
       - MODEL_NAME=${MODEL_NAME:-buffalo_l}
-      - DEVICE=openvino
-      - DET_SIZE=640,640
-      - GUNICORN_WORKERS=${WORKERS:-2}
+      - OPENVINO_DEVICE_TYPE=${OPENVINO_DEVICE_TYPE:-GPU}
+      - OPENVINO_PREC=${OPENVINO_PREC:-FP32}
+      - MAX_DET_SIZE=${MAX_DET_SIZE:-2048}
+      - GUNICORN_WORKERS=${WORKERS:-1}
       - PRELOAD_MODELS=true
     
     volumes:
