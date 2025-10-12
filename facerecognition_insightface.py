@@ -386,7 +386,8 @@ def open_model():
 @app.route("/health")
 def health():
     """Health check endpoint"""
-    return 'ok'
+    return ('ok' if face_app is not None else 'model not loaded',
+            200 if face_app is not None else 503)
 
 
 @app.route("/welcome")
