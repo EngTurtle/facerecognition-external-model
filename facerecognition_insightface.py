@@ -22,14 +22,37 @@ TEMP_DIR = "images"
 app = Flask(__name__)
 
 
-MAX_DET_SIZE = int(os.environ.get("MAX_DET_SIZE", 2048))
-# Ensure multiple of 32
-MAX_DET_SIZE = (MAX_DET_SIZE // 32) * 32
+# Default detection size (width, height)
+DEFAULT_DET_SIZE = "2048,1536"
+
+def parse_max_det_size(size_str):
+    """Parse MAX_DET_SIZE from string format 'width,height' and snap to multiples of 32."""
+    try:
+        if ',' in size_str:
+            width_str, height_str = size_str.split(',', 1)
+            width = int(width_str.strip())
+            height = int(height_str.strip())
+        else:
+            # Fallback for single value (assume square)
+            size = int(size_str.strip())
+            width, height = size, size
+        
+        # Snap to nearest multiple of 32
+        width = max((width // 32) * 32, 32)
+        height = max((height // 32) * 32, 32)
+        
+        return (width, height)
+    except (ValueError, AttributeError):
+        # Default to 2048,1536 if parsing fails
+        return parse_max_det_size(DEFAULT_DET_SIZE)
+
+MAX_DET_SIZE = parse_max_det_size(os.environ.get("MAX_DET_SIZE", DEFAULT_DET_SIZE))
 
 def compute_det_size(img_shape):
     """Scale image to fit within MAX_DET_SIZE, rounded to multiple of 32."""
     h, w = img_shape[:2]
-    scale = min(MAX_DET_SIZE / max(h, w), 1.0)
+    max_w, max_h = MAX_DET_SIZE
+    scale = min(max_w / w, max_h / h, 1.0)
     new_w, new_h = int(w * scale), int(h * scale)
     new_w = max((new_w // 32) * 32, 32)
     new_h = max((new_h // 32) * 32, 32)
@@ -84,7 +107,7 @@ def load_insightface_models():
     # Prepare with context
     # For OpenVINO/CUDA, we use ctx_id=0, for CPU we use -1
     ctx_id = 0 if device in ['cuda', 'openvino'] else -1
-    det_size = (MAX_DET_SIZE, MAX_DET_SIZE)
+    det_size = MAX_DET_SIZE
     face_app.prepare(ctx_id=ctx_id, det_size=det_size)
     
     print(f"InsightFace model loaded successfully")
@@ -226,7 +249,8 @@ def detect_faces() -> dict:
         img = image_to_numpy(image_path)
         
         # Check image size
-        if max(img.shape[0], img.shape[1]) > MAX_DET_SIZE:
+        max_w, max_h = MAX_DET_SIZE
+        if img.shape[1] > max_w or img.shape[0] > max_h:
             abort(412, "Image too large")
         
         # Ensure models are loaded
@@ -294,7 +318,8 @@ def compute():
         img = image_to_numpy(image_path)
         
         # Check image size
-        if max(img.shape[0], img.shape[1]) > MAX_DET_SIZE:
+        max_w, max_h = MAX_DET_SIZE
+        if img.shape[1] > max_w or img.shape[0] > max_h:
             abort(412, "Image too large")
         
         # Ensure models are loaded
@@ -376,9 +401,10 @@ def calculate_iou(box1: List[int], box2: List[int]) -> float:
 def open_model():
     """Pre-load models and return configuration"""
     load_insightface_models()
+    max_w, max_h = MAX_DET_SIZE
     return {
         "preferred_mimetype": "image/jpeg",
-        "maximum_area": MAX_DET_SIZE^2,
+        "maximum_area": max_w * max_h,
         "model": MODEL_NAME
     }
 

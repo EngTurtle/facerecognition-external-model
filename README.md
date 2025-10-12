@@ -124,7 +124,7 @@ docker-compose --profile openvino up -d facerecognition-openvino
 | `CUDA_DEVICE_ID` | `0` | CUDA device ID for multi-GPU systems |
 | `OPENVINO_DEVICE_TYPE` | `GPU` | OpenVINO device: GPU, GPU.0, GPU.1, etc. (check logs for available options) |
 | `OPENVINO_PREC` | `FP32` | OpenVINO precision for Intel GPU: FP32/FP16 |
-| `MAX_DET_SIZE` | `2048` | Detection input size, max of width and height |
+| `MAX_DET_SIZE` | `2048,1536` | Detection input size as 'width,height' (snapped to multiples of 32) |
 | `GUNICORN_WORKERS` | `1` | Number of worker processes |
 | `REQ_TIMEOUT` | `300` | Request timeout in seconds |
 | `PRELOAD_MODELS` | `false` | Preload models at startup |
@@ -270,7 +270,7 @@ docker run ... -e GUNICORN_WORKERS=1 ...
 docker run ... -e MODEL_NAME=buffalo_s ...
 
 # Reduce detection size
-docker run ... -e DET_SIZE=1024 ...
+docker run ... -e MAX_DET_SIZE=1024,768 ...
 ```
 
 ### Slow Performance

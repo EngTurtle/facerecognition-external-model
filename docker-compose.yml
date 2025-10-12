@@ -10,7 +10,7 @@ services:
     environment:
       - API_KEY=${API_KEY:-your-super-secret-api-key}
       - MODEL_NAME=${MODEL_NAME:-buffalo_l}
-      - MAX_DET_SIZE=${MAX_DET_SIZE:-2048}
+      - MAX_DET_SIZE=${MAX_DET_SIZE:-2048,1536}
       - GUNICORN_WORKERS=${WORKERS:-2}
       - GUNICORN_THREADS=1
       - REQ_TIMEOUT=300
@@ -34,7 +34,7 @@ services:
       - API_KEY=${API_KEY:-your-super-secret-api-key}
       - MODEL_NAME=${MODEL_NAME:-buffalo_l}
       - CUDA_DEVICE_ID=${CUDA_DEVICE_ID:-0}
-      - MAX_DET_SIZE=${MAX_DET_SIZE:-2048}
+      - MAX_DET_SIZE=${MAX_DET_SIZE:-2048,1536}
       - GUNICORN_WORKERS=1  # Usually 1 per GPU
       - PRELOAD_MODELS=true
     
@@ -63,7 +63,7 @@ services:
       - MODEL_NAME=${MODEL_NAME:-buffalo_l}
       - OPENVINO_DEVICE_TYPE=${OPENVINO_DEVICE_TYPE:-GPU}
       - OPENVINO_PREC=${OPENVINO_PREC:-FP32}
-      - MAX_DET_SIZE=${MAX_DET_SIZE:-2048}
+      - MAX_DET_SIZE=${MAX_DET_SIZE:-2048,1536}
       - GUNICORN_WORKERS=${WORKERS:-1}
       - PRELOAD_MODELS=true
     
