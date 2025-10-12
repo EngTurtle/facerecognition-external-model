@@ -52,9 +52,15 @@ RUN test -f /usr/local/cuda/lib64/libcudart.so.12
 
 FROM python:3.11-slim-bookworm AS prod-openvino
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ocl-icd-libopencl1 && \
+    apt-get install --no-install-recommends -yqq ocl-icd-libopencl1 wget && \
+    wget -nv https://github.com/intel/intel-graphics-compiler/releases/download/igc-1.0.17384.11/intel-igc-core_1.0.17384.11_amd64.deb && \
+    wget -nv https://github.com/intel/intel-graphics-compiler/releases/download/igc-1.0.17384.11/intel-igc-opencl_1.0.17384.11_amd64.deb && \
+    wget -nv https://github.com/intel/compute-runtime/releases/download/24.31.30508.7/intel-opencl-icd_24.31.30508.7_amd64.deb && \
+    wget -nv https://github.com/intel/compute-runtime/releases/download/24.31.30508.7/libigdgmm12_22.4.1_amd64.deb && \
+    dpkg -i *.deb && \
+    rm *.deb && \
+    apt-get remove wget -yqq && \
     rm -rf /var/lib/apt/lists/*
-RUN test -f /usr/lib/x86_64-linux-gnu/libOpenCL.so.1
 
 # ============================================================
 # Selector stages

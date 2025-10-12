@@ -93,14 +93,46 @@ def load_insightface_models():
 def get_providers(device: str) -> list:
     """Get ONNX Runtime execution providers based on device"""
     import onnxruntime as ort
+    import os
     
     available_providers = ort.get_available_providers()
     print(f"Available providers: {available_providers}")
     
+    # Configure OpenVINO for Intel GPU
+    if device == 'openvino' and 'OpenVINOExecutionProvider' in available_providers:
+        try:
+            # Use ONNX Runtime's built-in OpenVINO device detection
+            openvino_device_ids = ort.capi._pybind_state.get_available_openvino_device_ids()
+            print(f"Available OpenVINO devices: {openvino_device_ids}")
+            
+            # Check for GPU devices
+            gpu_devices = [device_id for device_id in openvino_device_ids if device_id.startswith("GPU")]
+            
+            if gpu_devices:
+                # Use GPU configuration
+                openvino_options = {
+                    'device_type': 'GPU.0',  # Use first GPU device
+                    'precision': 'FP32',     # Use FP32 precision
+                }
+                print(f"Using OpenVINO with Intel GPU: {openvino_options}")
+                return [('OpenVINOExecutionProvider', openvino_options), 'CPUExecutionProvider']
+            else:
+                print("No GPU devices found in OpenVINO. Falling back to CPU.")
+                # Remove OpenVINO provider entirely if no GPU
+                return ['CPUExecutionProvider']
+                
+        except Exception as e:
+            print(f"Error detecting OpenVINO devices: {e}")
+            # Fall back to OpenVINO CPU if device detection fails
+            openvino_options = {
+                'device_type': 'CPU',
+            }
+            print(f"Using OpenVINO with CPU: {openvino_options}")
+            return [('OpenVINOExecutionProvider', openvino_options), 'CPUExecutionProvider']
+    
     # Define provider preference based on device
     provider_map = {
         'cuda': ['CUDAExecutionProvider', 'CPUExecutionProvider'],
-        'openvino': ['OpenVINOExecutionProvider', 'CPUExecutionProvider'],
         'cpu': ['CPUExecutionProvider']
     }
     
