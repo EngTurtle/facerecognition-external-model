@@ -105,26 +105,36 @@ def get_providers(device: str) -> list:
             openvino_device_ids = ort.capi._pybind_state.get_available_openvino_device_ids()
             print(f"Available OpenVINO devices: {openvino_device_ids}")
             
-            # Check for GPU devices
-            gpu_devices = [device_id for device_id in openvino_device_ids if device_id.startswith("GPU")]
+            # Get device configuration
+            device_type = os.environ.get('OPENVINO_DEVICE_TYPE', 'GPU')
             
-            if gpu_devices:
-                # Use GPU configuration with configurable precision
+            # Validate device_type is actually available
+            if device_type not in openvino_device_ids:
+                print(f"Error: Requested device '{device_type}' not found in available devices: {openvino_device_ids}")
+                print(f"Falling back to CPU.")
+                return ['CPUExecutionProvider']
+            
+            # Configure based on device type
+            if device_type.startswith('GPU'):
+                # GPU configuration with precision options
                 precision = os.environ.get('OPENVINO_PREC', 'FP32')
-                # Intel GPU only supports FP32 and FP16 precision
                 if precision not in ['FP32', 'FP16']:
                     print(f"Warning: Unsupported precision '{precision}' for Intel GPU. Defaulting to FP32.")
                     precision = 'FP32'
+                
                 openvino_options = {
-                    'device_type': 'GPU',    # Use GPU device
-                    'precision': precision,  # Configurable precision via OPENVINO_PREC env var
+                    'device_type': device_type,
+                    'precision': precision,
                 }
-                print(f"Using OpenVINO with Intel GPU: {openvino_options}")
-                return [('OpenVINOExecutionProvider', openvino_options), 'CPUExecutionProvider']
+                print(f"Using OpenVINO with Intel GPU {device_type}: {openvino_options}")
             else:
-                print("No GPU devices found in OpenVINO. Falling back to CPU.")
-                # Remove OpenVINO provider entirely if no GPU
-                return ['CPUExecutionProvider']
+                # CPU or other device - no precision options (untested)
+                openvino_options = {
+                    'device_type': device_type,
+                }
+                print(f"Using OpenVINO with device {device_type}: {openvino_options}")
+            
+            return [('OpenVINOExecutionProvider', openvino_options), 'CPUExecutionProvider']
                 
         except Exception as e:
             print(f"Error detecting OpenVINO devices: {e}")
