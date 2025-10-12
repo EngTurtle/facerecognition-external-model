@@ -24,7 +24,6 @@ The original uses dlib models. This version uses InsightFace models which genera
 ### Available Models
 
 - `buffalo_s` - Small/fastest
-- `buffalo_m` - Medium
 - `buffalo_l` - Large (default)
 - `antelopev2` - Alternative high-accuracy model
 
@@ -214,19 +213,17 @@ php occ face:background_job --all --analyze-mode
 ### CPU
 
 - Works on any x86_64 system
-- Good for smaller libraries (<20k images)
 - Consider using `buffalo_s` model for better speed
 
 ### CUDA
 
 - Requires NVIDIA GPU with CUDA support
 - Requires nvidia-docker2
-- Best performance for large libraries
 - Use `buffalo_l` or `antelopev2` for maximum accuracy
 
 ### OpenVINO
 
-- Optimized for Intel hardware (CPUs and integrated GPUs)
+- Optimized for Intel hardware (iGPU and dGPU)
 - Good middle ground between CPU and CUDA
 - Requires `/dev/dri` device access for GPU support
 - Works on CPU-only mode as well
