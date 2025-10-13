@@ -6,7 +6,7 @@ import json
 import numpy as np
 import cv2
 from insightface.app import FaceAnalysis
-from insightface.model_zoo import get_model
+# from insightface.model_zoo import get_model
 
 # Info
 PACKAGE_VERSION = "0.1.0"
@@ -23,7 +23,7 @@ app = Flask(__name__)
 
 
 # Default detection size (width, height)
-DEFAULT_DET_SIZE = "2048,1536"
+DEFAULT_DET_SIZE = "1024,1024"
 
 def parse_max_det_size(size_str):
     """Parse MAX_DET_SIZE from string format 'width,height' and snap to multiples of 32."""
@@ -249,9 +249,9 @@ def detect_faces() -> dict:
         img = image_to_numpy(image_path)
         
         # Check image size
-        max_w, max_h = MAX_DET_SIZE
-        if img.shape[1] > max_w or img.shape[0] > max_h:
-            abort(412, "Image too large")
+        # max_w, max_h = MAX_DET_SIZE
+        # if img.shape[1] > max_w or img.shape[0] > max_h:
+        #     abort(412, "Image too large")
         
         # Ensure models are loaded
         if face_app is None:
@@ -318,9 +318,9 @@ def compute():
         img = image_to_numpy(image_path)
         
         # Check image size
-        max_w, max_h = MAX_DET_SIZE
-        if img.shape[1] > max_w or img.shape[0] > max_h:
-            abort(412, "Image too large")
+        # max_w, max_h = MAX_DET_SIZE
+        # if img.shape[1] > max_w or img.shape[0] > max_h:
+        #     abort(412, "Image too large")
         
         # Ensure models are loaded
         if face_app is None:
