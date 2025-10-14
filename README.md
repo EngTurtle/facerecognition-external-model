@@ -120,7 +120,7 @@ docker-compose --profile openvino up -d facerecognition-openvino
 |----------|---------|-------------|
 | `API_KEY` | `some-super-secret-api-key` | Shared API key for authentication |
 | `MODEL_NAME` | `buffalo_l` | InsightFace model: buffalo_s/l or antelopev2 |
-| `EMBEDDING_SCALE` | `0.3` | Scaling the 512 dim face embedding to the range expected by main app |
+| `EMBEDDING_SCALE` | `0.017` | Scaling the 512 dim face embedding to the range expected by main app |
 | `CUDA_DEVICE_ID` | `0` | CUDA device ID for multi-GPU systems |
 | `OPENVINO_DEVICE_TYPE` | `GPU` | OpenVINO device: GPU, GPU.0, GPU.1, etc. (check logs for available options) |
 | `OPENVINO_PREC` | `FP32` | OpenVINO precision for Intel GPU: FP32/FP16 |

@@ -20,7 +20,7 @@ MODEL_NAME = os.environ.get("MODEL_NAME", "buffalo_l")
 TEMP_DIR = "images"
 
 # embeddings scale factor
-EMBEDDING_SCALE = float(os.environ.get("EMBEDDING_SCALE", "0.3"))
+EMBEDDING_SCALE = float(os.environ.get("EMBEDDING_SCALE", "0.017"))
 
 app = Flask(__name__)
 
@@ -110,6 +110,7 @@ def get_providers(device: str) -> list:
     import onnxruntime as ort
     import os
     
+    print(f"Using embedding scale factor: {EMBEDDING_SCALE}")
     available_providers = ort.get_available_providers()
     print(f"Available providers: {available_providers}")
     
@@ -208,8 +209,8 @@ def serialize_face(face) -> Dict[str, Any]:
         for point in face.kps:
             landmarks.append({"x": int(point[0]), "y": int(point[1])})
     
-    # Serialize embedding as list of floats
-    embedding = face.embedding.tolist() * EMBEDDING_SCALE
+    # scale embedding to match expected range
+    embedding = face.embedding * EMBEDDING_SCALE
     
     return {
         "detection_confidence": float(face.det_score),
@@ -218,7 +219,7 @@ def serialize_face(face) -> Dict[str, Any]:
         "right": int(bbox[2]),
         "bottom": int(bbox[3]),
         "landmarks": landmarks,
-        "descriptor": embedding
+        "descriptor": embedding.tolist()
     }
 
 
