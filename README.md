@@ -120,7 +120,7 @@ docker-compose --profile openvino up -d facerecognition-openvino
 |----------|---------|-------------|
 | `API_KEY` | `some-super-secret-api-key` | Shared API key for authentication |
 | `MODEL_NAME` | `buffalo_l` | InsightFace model: buffalo_s/l or antelopev2 |
-| `EMBEDDING_SCALE` | `0.017` | Scaling the 512 dim face embedding to the range expected by main app |
+| `EMBEDDING_SCALE` | `0.017` | Scaling the 512 dim face embedding to the range expected by clustering algorithm |
 | `CUDA_DEVICE_ID` | `0` | CUDA device ID for multi-GPU systems |
 | `OPENVINO_DEVICE_TYPE` | `GPU` | OpenVINO device: GPU, GPU.0, GPU.1, etc. (check logs for available options) |
 | `OPENVINO_PREC` | `FP32` | OpenVINO precision for Intel GPU: FP32/FP16 |
@@ -179,7 +179,7 @@ curl -X POST http://localhost:8080/detect \
 
 ### Important Notes
 
-1. **Embeddings are incompatible** - InsightFace uses 512-dim embeddings vs dlib's 128-dim
+1. **Embeddings are incompatible** - InsightFace uses 512-dim embeddings vs dlib's 128-dim requiring changes to clustering sensitivity setting
 2. **Must regenerate face data** - All faces need to be re-analyzed
 3. **API is compatible** - No changes needed to Nextcloud configuration except URL/key
 
@@ -207,6 +207,52 @@ php occ face:background_job --all --analyze-mode
 
 # 5. Once confirmed working, stop old container
 ```
+
+## Recommended Configuration Values
+
+After implementing the InsightFace integration with 512-dimensional embeddings, the following settings are recommended for optimal face clustering:
+
+### Admin Settings (Administration → Settings → Face Recognition)
+
+| Setting | Recommended Value | Range | Notes |
+|---------|------------------|-------|-------|
+| **Sensitivity** | 0.4 | 0.2 - 0.6 | Middle value works well for most users |
+| **Minimum confidence** | 0.7 | 0.5 - 0.95 | Keep at or above 0.7 |
+
+### Understanding the Values
+
+**Sensitivity:**
+- **Lower (0.2-0.3):** Stricter matching - use if you have twins or very similar-looking people
+- **Middle (0.4):** Balanced default - good for most photo libraries
+- **Higher (0.5-0.6):** More permissive - catches marginal matches but may need manual cleanup
+
+**Minimum confidence:**
+- Keep at **0.7** (default) for reliable face detection
+- Going below 0.5 can introduce false positives
+- Going above 0.9 will miss many valid faces
+
+## Notes on recommended settings
+
+These recommendations are based on [Immich's facial recognition documentation](https://immich.app/docs/features/facial-recognition), adapted for embedding scale difference between InsightFace and original dlib models.
+
+- Immich uses normalized embeddings (cosine similarity) with thresholds of 0.3-0.7
+- Face recognition uses raw Euclidean distance in the chinese whisper algorithm.
+- The default `0.017` embedding scaling maps InsightFace's embedding distances (9-40) to facerecognition's UI setting range (0.2-0.6)
+- The effective threshold behavior matches Immich's recommendations after scaling
+
+For further guidance on improving clustering results, see [Immich's Better Facial Clusters guide](https://immich.app/docs/guides/better-facial-clusters).
+
+## Testing Your Settings
+
+After applying the code changes:
+
+1. Start with **sensitivity = 0.4** and **min_faces = 2**
+2. Re-run face detection and clustering on a sample of 100-1000 images
+3. Review the results:
+   - Too many separate clusters for the same person? → Increase sensitivity to 0.5
+   - Unrelated people merged together? → Decrease sensitivity to 0.3
+   - Too few clusters formed? → Lower min_faces to 2
+4. Once satisfied, apply to full library
 
 ## Device-Specific Notes
 
