@@ -19,6 +19,9 @@ MODEL_NAME = os.environ.get("MODEL_NAME", "buffalo_l")
 # Directory for temporary images
 TEMP_DIR = "images"
 
+# embeddings scale factor
+EMBEDDING_SCALE = float(os.environ.get("EMBEDDING_SCALE", "0.3"))
+
 app = Flask(__name__)
 
 
@@ -47,17 +50,6 @@ def parse_max_det_size(size_str):
         return parse_max_det_size(DEFAULT_DET_SIZE)
 
 MAX_DET_SIZE = parse_max_det_size(os.environ.get("MAX_DET_SIZE", DEFAULT_DET_SIZE))
-
-def compute_det_size(img_shape):
-    """Scale image to fit within MAX_DET_SIZE, rounded to multiple of 32."""
-    h, w = img_shape[:2]
-    max_w, max_h = MAX_DET_SIZE
-    scale = min(max_w / w, max_h / h, 1.0)
-    new_w, new_h = int(w * scale), int(h * scale)
-    new_w = max((new_w // 32) * 32, 32)
-    new_h = max((new_h // 32) * 32, 32)
-    return (new_w, new_h)
-
 
 def require_appkey(view_function):
     """Security decorator for API key authentication"""
@@ -217,7 +209,7 @@ def serialize_face(face) -> Dict[str, Any]:
             landmarks.append({"x": int(point[0]), "y": int(point[1])})
     
     # Serialize embedding as list of floats
-    embedding = face.embedding.tolist()
+    embedding = face.embedding.tolist() * EMBEDDING_SCALE
     
     return {
         "detection_confidence": float(face.det_score),
@@ -360,8 +352,7 @@ def compute():
                 landmarks.append({"x": int(point[0]), "y": int(point[1])})
             face_data["landmarks"] = landmarks
         
-        embedding = (best_match.normed_embedding if hasattr(best_match, 'normed_embedding') 
-                    else best_match.embedding)
+        embedding = best_match.embedding * EMBEDDING_SCALE
         face_data["descriptor"] = embedding.tolist()
         
         return {"filename": filename, "face": face_data}
@@ -432,11 +423,9 @@ def welcome():
     
     # Add provider info if model is loaded
     if face_app is not None:
-        try:
-            import onnxruntime as ort
-            response["providers"] = ort.get_available_providers()
-        except:
-            pass
+        import onnxruntime as ort
+        response["providers"] = ort.get_available_providers()
+
     
     return response
 
