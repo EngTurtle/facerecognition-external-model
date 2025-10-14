@@ -26,7 +26,7 @@ app = Flask(__name__)
 
 
 # Default detection size (width, height)
-DEFAULT_DET_SIZE = "1024,1024"
+DEFAULT_DET_SIZE = "640,640"
 
 def parse_max_det_size(size_str):
     """Parse MAX_DET_SIZE from string format 'width,height' and snap to multiples of 32."""
@@ -393,10 +393,9 @@ def calculate_iou(box1: List[int], box2: List[int]) -> float:
 def open_model():
     """Pre-load models and return configuration"""
     load_insightface_models()
-    max_w, max_h = MAX_DET_SIZE
     return {
         "preferred_mimetype": "image/jpeg",
-        "maximum_area": max_w * max_h,
+        "maximum_area": 5000000,  # 5 MP to always pass size check
         "model": MODEL_NAME
     }
 
