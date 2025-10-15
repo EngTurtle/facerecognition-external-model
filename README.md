@@ -124,7 +124,7 @@ docker-compose --profile openvino up -d facerecognition-openvino
 | `CUDA_DEVICE_ID` | `0` | CUDA device ID for multi-GPU systems |
 | `OPENVINO_DEVICE_TYPE` | `GPU` | OpenVINO device: GPU, GPU.0, GPU.1, etc. (check logs for available options) |
 | `OPENVINO_PREC` | `FP32` | OpenVINO precision for Intel GPU: FP32/FP16 |
-| `MAX_DET_SIZE` | `1024,1024` | Detection input size as 'width,height' (snapped to multiples of 32) |
+| `MAX_DET_SIZE` | `640,640` | Detection input size as 'width,height' (snapped to multiples of 32) |
 | `GUNICORN_WORKERS` | `1` | Number of worker processes |
 | `REQ_TIMEOUT` | `300` | Request timeout in seconds |
 | `PRELOAD_MODELS` | `false` | Preload models at startup |
