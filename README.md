@@ -222,9 +222,9 @@ After implementing the InsightFace integration with 512-dimensional embeddings, 
 ### Understanding the Values
 
 **Sensitivity:**
-- **Lower (0.2-0.3):** Stricter matching - use if you have twins or very similar-looking people
+- **Lower (0.3-0.35):** Stricter matching - use if you have twins or very similar-looking people
 - **Middle (0.4):** Balanced default - good for most photo libraries
-- **Higher (0.5-0.6):** More permissive - catches marginal matches but may need manual cleanup
+- **Higher (0.45-0.5):** More permissive - catches marginal matches but may need manual cleanup
 
 **Minimum confidence:**
 - Keep at **0.7** (default) for reliable face detection
@@ -249,9 +249,8 @@ After applying the code changes:
 1. Start with **sensitivity = 0.4** and **min_faces = 2**
 2. Re-run face detection and clustering on a sample of 100-1000 images
 3. Review the results:
-   - Too many separate clusters for the same person? → Increase sensitivity to 0.5
-   - Unrelated people merged together? → Decrease sensitivity to 0.3
-   - Too few clusters formed? → Lower min_faces to 2
+   - Too many separate clusters for the same person? → Increase sensitivity by 0.2 step each time
+   - Unrelated people merged together? → Decrease sensitivity by 0.2 step each time
 4. Once satisfied, apply to full library
 
 ## Device-Specific Notes
@@ -264,13 +263,11 @@ After applying the code changes:
 ### CUDA
 
 - Requires NVIDIA GPU with CUDA support
-- Requires nvidia-docker2
 - Use `buffalo_l` or `antelopev2` for maximum accuracy
 
 ### OpenVINO
 
 - Optimized for Intel hardware (iGPU and dGPU)
-- Good middle ground between CPU and CUDA
 - Requires `/dev/dri` device access for GPU support
 - Works on CPU-only mode as well
 
