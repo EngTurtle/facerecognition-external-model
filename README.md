@@ -103,7 +103,7 @@ docker run -d --name facerecognition \
 
 ```bash
 # CPU (default)
-docker-compose up -d facerecognition-cpu
+docker-compose --profile cpu up -d facerecognition-cpu
 
 # CUDA
 docker-compose --profile cuda up -d facerecognition-cuda
@@ -222,12 +222,14 @@ After implementing the InsightFace integration with 512-dimensional embeddings, 
 ### Understanding the Values
 
 **Sensitivity:**
+
 - **Lower (0.3-0.35):** Stricter matching - use if you have twins or very similar-looking people
 - **Middle (0.4):** Balanced default - good for most photo libraries
 - **Higher (0.45-0.5):** More permissive - catches marginal matches but may need manual cleanup
 
 **Minimum confidence:**
-- Keep at **0.7** (default) for reliable face detection
+
+- The **0.7** (default) is a good middle ground
 - Going below 0.5 can introduce false positives
 - Going above 0.9 will miss many valid faces
 

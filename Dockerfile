@@ -16,11 +16,35 @@ RUN pip install --no-cache-dir -r requirements-cpu.txt
 # --- Sanity check
 RUN python3 -c "import sys, numpy; print('CPU builder OK:', sys.version, numpy.__version__)"
 
-FROM builder-cpu AS builder-cuda
+FROM nvidia/cuda:12.2.2-runtime-ubuntu22.04 AS builder-cuda
+WORKDIR /app
+# Install Python 3.11 and build tools
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        python3.11 \
+        python3.11-dev \
+        python3.11-distutils \
+        python3-pip \
+        libpython3.11 \
+        build-essential \
+        libcudnn9-cuda-12 && \
+    rm -rf /var/lib/apt/lists/*
+RUN ln -sf /usr/bin/python3.11 /usr/bin/python3
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# Install CPU requirements first (base dependencies)
+COPY requirements-cpu.txt /app/
+RUN pip install --no-cache-dir -r requirements-cpu.txt
+
+# Install CUDA-specific requirements
 COPY requirements-cuda.txt /app/
 RUN pip install --no-cache-dir -r requirements-cuda.txt
+
 # --- Sanity check
 RUN python3 -c "import onnx; print('CUDA builder OK:', onnx.__version__)"
+RUN test -f /usr/local/cuda/lib64/libcudart.so.12
 
 FROM builder-cpu AS builder-openvino
 RUN apt-get update && \
@@ -46,8 +70,13 @@ RUN python3 --version
 
 FROM nvidia/cuda:12.2.2-runtime-ubuntu22.04 AS prod-cuda
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends python3.11 python3-pip libcudnn9-cuda-12 && \
+    apt-get install -y --no-install-recommends \
+        python3.11 \
+        python3-pip \
+        libpython3.11 \
+        libcudnn9-cuda-12 && \
     rm -rf /var/lib/apt/lists/*
+RUN ln -sf /usr/bin/python3.11 /usr/bin/python3
 RUN test -f /usr/local/cuda/lib64/libcudart.so.12
 
 FROM python:3.11-slim-bookworm AS prod-openvino
@@ -73,7 +102,8 @@ FROM prod-${DEVICE} AS prod
 # ============================================================
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+# Copy Python packages - Ubuntu uses dist-packages, Debian uses site-packages
+COPY --from=builder /usr/local/lib/python3.11/ /usr/local/lib/python3.11/
 COPY --from=builder /usr/local/bin /usr/local/bin
 COPY facerecognition_insightface.py gunicorn_config.py /app/
 RUN mkdir -p /app/models /app/images

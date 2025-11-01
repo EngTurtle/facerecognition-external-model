@@ -1,16 +1,15 @@
-version: '3.8'
-
 services:
   # Face recognition service with CPU support
   facerecognition-cpu:
+    profiles: ["cpu"]
     image: ghcr.io/engturtle/facerecognition-external-model-insightface:cpu
     container_name: facerecognition-cpu
     ports:
       - "8080:5000"
     environment:
-      - API_KEY=${API_KEY:-your-super-secret-api-key}
+      - API_KEY=${API_KEY:-some-super-secret-api-key}
       - MODEL_NAME=${MODEL_NAME:-buffalo_l}
-      - MAX_DET_SIZE=${MAX_DET_SIZE:-2048,1536}
+      - MAX_DET_SIZE=${MAX_DET_SIZE:-640,640}
       - GUNICORN_WORKERS=${WORKERS:-2}
       - GUNICORN_THREADS=1
       - REQ_TIMEOUT=300
@@ -31,13 +30,13 @@ services:
     ports:
       - "8080:5000"
     environment:
-      - API_KEY=${API_KEY:-your-super-secret-api-key}
+      - API_KEY=${API_KEY:-some-super-secret-api-key}
       - MODEL_NAME=${MODEL_NAME:-buffalo_l}
       - CUDA_DEVICE_ID=${CUDA_DEVICE_ID:-0}
-      - MAX_DET_SIZE=${MAX_DET_SIZE:-2048,1536}
+      - MAX_DET_SIZE=${MAX_DET_SIZE:-640,640}
       - GUNICORN_WORKERS=1  # Usually 1 per GPU
       - PRELOAD_MODELS=true
-    
+
     volumes:
       - model-cache:/app/models
     
@@ -59,12 +58,12 @@ services:
     ports:
       - "8080:5000"
     environment:
-      - API_KEY=${API_KEY:-your-super-secret-api-key}
+      - API_KEY=${API_KEY:-some-super-secret-api-key}
       - MODEL_NAME=${MODEL_NAME:-buffalo_l}
       - OPENVINO_DEVICE_TYPE=${OPENVINO_DEVICE_TYPE:-GPU}
-      - OPENVINO_PREC=${OPENVINO_PREC:-FP32}
-      - MAX_DET_SIZE=${MAX_DET_SIZE:-2048,1536}
-      - GUNICORN_WORKERS=${WORKERS:-1}
+      - OPENVINO_PREC=${OPENVINO_PREC:-FP16}
+      - MAX_DET_SIZE=${MAX_DET_SIZE:-640,640}
+      - GUNICORN_WORKERS=1
       - PRELOAD_MODELS=true
     
     volumes:
