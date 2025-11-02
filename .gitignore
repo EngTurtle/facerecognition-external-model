@@ -1,3 +1,7 @@
 __pycache__/
 images/
 vendor/
+.claude/
+.vscode/
+.env
+CLAUDE.md
