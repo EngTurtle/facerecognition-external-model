@@ -105,15 +105,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf 
 # Copy Python packages - Ubuntu uses dist-packages, Debian uses site-packages
 COPY --from=builder /usr/local/lib/python3.11/ /usr/local/lib/python3.11/
 COPY --from=builder /usr/local/bin /usr/local/bin
-COPY facerecognition_insightface.py gunicorn_config.py /app/
-RUN mkdir -p /app/models /app/images
+COPY wsgi.py gunicorn_config.py /app/
+COPY facerec/ /app/facerec/
+RUN mkdir -p /app/models
 ARG DEVICE
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     DEVICE=$DEVICE \
-    FLASK_APP=facerecognition_insightface.py \
     GUNICORN_WORKERS=1 \
     PORT=5000
 EXPOSE 5000
 HEALTHCHECK CMD curl -f http://localhost:5000/health || exit 1
-ENTRYPOINT ["gunicorn", "-c", "gunicorn_config.py", "facerecognition_insightface:app"]
+ENTRYPOINT ["gunicorn", "-c", "gunicorn_config.py", "wsgi:app"]

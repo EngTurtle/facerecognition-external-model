@@ -340,7 +340,7 @@ pip install -r requirements-cpu.txt
 export API_KEY="test-key"
 export MODEL_NAME="buffalo_l"
 export DEVICE="cpu"
-python facerecognition_insightface.py
+python wsgi.py
 ```
 
 ## Architecture
@@ -351,6 +351,20 @@ Following Immich's ML architecture:
 - ONNX Runtime with pluggable execution providers
 - Device-aware provider selection
 - Graceful fallback to CPU if preferred provider unavailable
+
+### Code Layout
+
+The service is a `facerec/` package with a thin `wsgi.py` entrypoint:
+
+- `wsgi.py` - module-level `app` for gunicorn; also runnable directly for local dev
+- `facerec/config.py` - env-driven configuration and defaults (stdlib only)
+- `facerec/providers.py` - ONNX Runtime execution provider selection (CPU/CUDA/OpenVINO)
+- `facerec/faces.py` - IoU, landmark/face serialization, and face-matching helpers
+- `facerec/images.py` - image decoding (bytes → RGB numpy array)
+- `facerec/model.py` - thread-safe lazy wrapper around InsightFace's `FaceAnalysis`
+- `facerec/auth.py` - `x-api-key` header authentication decorator
+- `facerec/api.py` - Flask blueprint with the `/detect`, `/compute`, `/open`, `/health`, `/welcome` routes
+- `facerec/app.py` - `create_app()` Flask application factory
 
 ## Acknowledgments
 
