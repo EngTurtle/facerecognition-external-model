@@ -1,0 +1,5 @@
+# Minimal dependencies to run the unit tests in tests/ (facerec.config,
+# facerec.faces, facerec.auth). Full runtime deps live in requirements-cpu.txt.
+pytest
+numpy
+flask

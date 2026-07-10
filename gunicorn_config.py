@@ -21,35 +21,16 @@ max_requests = int(os.getenv("MAX_REQUESTS", 1000))
 max_requests_jitter = int(os.getenv("MAX_REQUESTS_JITTER", 50))
 
 
-def on_starting(server):
-    """Called just before the master process is initialized"""
-    # Check and create temp directory
-    temp_dir = "images"
-    if not os.path.exists(temp_dir):
-        server.log.info(f"Creating directory for temporary files: {temp_dir}")
-        os.makedirs(temp_dir, exist_ok=True)
-    
-    # Clean old files if they exist
-    server.log.info("Cleaning up old temporary files")
-    for filename in os.listdir(temp_dir):
-        file_path = os.path.join(temp_dir, filename)
-        try:
-            if os.path.isfile(file_path):
-                os.unlink(file_path)
-        except Exception as e:
-            server.log.error(f"Error deleting {file_path}: {e}")
-
-
 def post_worker_init(worker):
     """Called after a worker has been forked"""
     worker.log.info(f"Worker {worker.pid} initialized")
-    
+
     # Optionally preload models here if PRELOAD_MODELS is set
     if os.getenv("PRELOAD_MODELS", "false").lower() == "true":
         worker.log.info(f"Preloading models in worker {worker.pid}")
         try:
-            from facerecognition_insightface import load_insightface_models
-            load_insightface_models()
+            from wsgi import app
+            app.extensions["face_model"].load()
             worker.log.info(f"Models preloaded successfully in worker {worker.pid}")
         except Exception as e:
             worker.log.error(f"Failed to preload models in worker {worker.pid}: {e}")

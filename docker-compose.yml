@@ -5,7 +5,7 @@ services:
     image: ghcr.io/engturtle/facerecognition-external-model-insightface:cpu
     container_name: facerecognition-cpu
     ports:
-      - "8080:5000"
+      - "5000:5000"
     environment:
       - API_KEY=${API_KEY:-some-super-secret-api-key}
       - MODEL_NAME=${MODEL_NAME:-buffalo_l}
@@ -28,7 +28,7 @@ services:
     image: ghcr.io/engturtle/facerecognition-external-model-insightface:cuda
     container_name: facerecognition-cuda
     ports:
-      - "8080:5000"
+      - "5000:5000"
     environment:
       - API_KEY=${API_KEY:-some-super-secret-api-key}
       - MODEL_NAME=${MODEL_NAME:-buffalo_l}
@@ -56,7 +56,7 @@ services:
     image: ghcr.io/engturtle/facerecognition-external-model-insightface:openvino
     container_name: facerecognition-openvino
     ports:
-      - "8080:5000"
+      - "5000:5000"
     environment:
       - API_KEY=${API_KEY:-some-super-secret-api-key}
       - MODEL_NAME=${MODEL_NAME:-buffalo_l}
