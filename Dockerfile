@@ -6,7 +6,7 @@ ARG DEVICE=cpu
 # ============================================================
 # Builder variants
 # ============================================================
-FROM python:3.11-slim-bookworm AS builder-cpu
+FROM python:3.12-slim-bookworm AS builder-cpu
 WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
@@ -16,35 +16,34 @@ RUN pip install --no-cache-dir -r requirements-cpu.txt
 # --- Sanity check
 RUN python3 -c "import sys, numpy; print('CPU builder OK:', sys.version, numpy.__version__)"
 
-FROM nvidia/cuda:12.2.2-runtime-ubuntu22.04 AS builder-cuda
+FROM nvidia/cuda:13.2.1-runtime-ubuntu24.04 AS builder-cuda
 WORKDIR /app
-# Install Python 3.11 and build tools
+# Install Python 3.12 and build tools
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        python3.11 \
-        python3.11-dev \
-        python3.11-distutils \
+        python3.12 \
+        python3.12-dev \
         python3-pip \
-        libpython3.11 \
+        libpython3.12 \
         build-essential \
-        libcudnn9-cuda-12 && \
+        libcudnn9-cuda-13 && \
     rm -rf /var/lib/apt/lists/*
-RUN ln -sf /usr/bin/python3.11 /usr/bin/python3
+RUN ln -sf /usr/bin/python3.12 /usr/bin/python3
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
 # Install CPU requirements first (base dependencies)
 COPY requirements-cpu.txt /app/
-RUN pip install --no-cache-dir -r requirements-cpu.txt
+RUN pip install --no-cache-dir --break-system-packages -r requirements-cpu.txt
 
 # Install CUDA-specific requirements
 COPY requirements-cuda.txt /app/
-RUN pip install --no-cache-dir -r requirements-cuda.txt
+RUN pip install --no-cache-dir --break-system-packages -r requirements-cuda.txt
 
 # --- Sanity check
 RUN python3 -c "import onnx; print('CUDA builder OK:', onnx.__version__)"
-RUN test -f /usr/local/cuda/lib64/libcudart.so.12
+RUN test -f /usr/local/cuda/lib64/libcudart.so.13
 
 FROM builder-cpu AS builder-openvino
 RUN apt-get update && \
@@ -65,21 +64,21 @@ RUN test -f /usr/lib/x86_64-linux-gnu/libOpenCL.so.1 && \
 # ============================================================
 # Production variants
 # ============================================================
-FROM python:3.11-slim-bookworm AS prod-cpu
+FROM python:3.12-slim-bookworm AS prod-cpu
 RUN python3 --version
 
-FROM nvidia/cuda:12.2.2-runtime-ubuntu22.04 AS prod-cuda
+FROM nvidia/cuda:13.2.1-runtime-ubuntu24.04 AS prod-cuda
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        python3.11 \
+        python3.12 \
         python3-pip \
-        libpython3.11 \
-        libcudnn9-cuda-12 && \
+        libpython3.12 \
+        libcudnn9-cuda-13 && \
     rm -rf /var/lib/apt/lists/*
-RUN ln -sf /usr/bin/python3.11 /usr/bin/python3
-RUN test -f /usr/local/cuda/lib64/libcudart.so.12
+RUN ln -sf /usr/bin/python3.12 /usr/bin/python3
+RUN test -f /usr/local/cuda/lib64/libcudart.so.13
 
-FROM python:3.11-slim-bookworm AS prod-openvino
+FROM python:3.12-slim-bookworm AS prod-openvino
 RUN apt-get update && \
     apt-get install --no-install-recommends -yqq ocl-icd-libopencl1 wget && \
     wget -nv https://github.com/intel/intel-graphics-compiler/releases/download/igc-1.0.17384.11/intel-igc-core_1.0.17384.11_amd64.deb && \
@@ -101,9 +100,12 @@ FROM prod-${DEVICE} AS prod
 # Final assembly
 # ============================================================
 WORKDIR /app
-RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+# libgl1/libglib2.0-0: insightface depends on opencv-python (non-headless), which
+# gets installed alongside opencv-python-headless and takes precedence, requiring
+# libGL.so.1 at import time even though we never use any GUI functionality.
+RUN apt-get update && apt-get install -y --no-install-recommends curl libgl1 libglib2.0-0 && rm -rf /var/lib/apt/lists/*
 # Copy Python packages - Ubuntu uses dist-packages, Debian uses site-packages
-COPY --from=builder /usr/local/lib/python3.11/ /usr/local/lib/python3.11/
+COPY --from=builder /usr/local/lib/python3.12/ /usr/local/lib/python3.12/
 COPY --from=builder /usr/local/bin /usr/local/bin
 COPY wsgi.py gunicorn_config.py /app/
 COPY facerec/ /app/facerec/

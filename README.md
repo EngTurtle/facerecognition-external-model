@@ -265,6 +265,7 @@ After applying the code changes:
 ### CUDA
 
 - Requires NVIDIA GPU with CUDA support
+- Requires Turing architecture or newer (RTX 20-series+, not Maxwell/Pascal/Volta) and a driver supporting CUDA 13
 - Use `buffalo_l` or `antelopev2` for maximum accuracy
 
 ### OpenVINO
