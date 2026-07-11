@@ -11,7 +11,7 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*
-COPY requirements-cpu.txt /app/
+COPY requirements-base.txt requirements-cpu.txt /app/
 RUN pip install --no-cache-dir -r requirements-cpu.txt
 # --- Sanity check
 RUN python3 -c "import sys, numpy; print('CPU builder OK:', sys.version, numpy.__version__)"
@@ -33,12 +33,7 @@ RUN ln -sf /usr/bin/python3.12 /usr/bin/python3
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# Install CPU requirements first (base dependencies)
-COPY requirements-cpu.txt /app/
-RUN pip install --no-cache-dir --break-system-packages -r requirements-cpu.txt
-
-# Install CUDA-specific requirements
-COPY requirements-cuda.txt /app/
+COPY requirements-base.txt requirements-cuda.txt /app/
 RUN pip install --no-cache-dir --break-system-packages -r requirements-cuda.txt
 
 # --- Sanity check
@@ -49,7 +44,7 @@ FROM builder-cpu AS builder-openvino
 RUN apt-get update && \
     apt-get install -y --no-install-recommends wget ocl-icd-libopencl1 && \
     rm -rf /var/lib/apt/lists/*
-COPY requirements-openvino.txt /app/
+COPY requirements-base.txt requirements-openvino.txt /app/
 RUN pip install --no-cache-dir -r requirements-openvino.txt
 # Install OpenVINO GPU deps directly here
 RUN wget -nv https://github.com/intel/intel-graphics-compiler/releases/download/igc-1.0.17384.11/intel-igc-core_1.0.17384.11_amd64.deb && \
